@@ -176,7 +176,11 @@ export async function GET(request: Request) {
     }
 
     // 第二步：找到最匹配的结果
-    const bestMatch = findBestMatch(searchData.list, year, stype);
+    const bestMatch = findBestMatch(
+      searchData.list,
+      year || undefined,
+      stype || undefined
+    );
 
     if (!bestMatch) {
       return NextResponse.json(
