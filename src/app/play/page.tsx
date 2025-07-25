@@ -1190,6 +1190,8 @@ function PlayPageClient() {
 
         //console.log('即将创建播放器，弹幕URL:', danmukuUrl);
 
+        if (!artRef.current) return;
+
         artPlayerRef.current = new Artplayer({
           container: artRef.current,
           url: videoUrl,
