@@ -57,6 +57,7 @@ function findBestMatch(
       '纪录片',
       '其他片',
       '动画片',
+      'bilibili电影',
     ];
     const tvTypes = [
       '电视剧',
@@ -65,6 +66,10 @@ function findBestMatch(
       '欧美剧',
       '日韩剧',
       '其他剧',
+      'bilibili电视剧',
+      'bilibili国创',
+      'bilibili番剧',
+      'bilibili',
     ];
 
     if (stype === 'movie') {
@@ -106,28 +111,25 @@ function parsePlayUrls(vod_play_url: string): Record<string, string> {
 
   const episodeEntries = vod_play_url.split('#');
 
-  for (const entry of episodeEntries) {
-    const [episode, url] = entry.split('$');
-    if (episode && url) {
+  episodeEntries.forEach((entry, index) => {
+    const [title, url] = entry.split('$');
+    if (title && url) {
       // 处理episode名称
-      const processedEpisode = episode.trim();
+      const processedTitle = title.trim();
+      let episodeNumber: string | null = null;
 
-      // 检查是否是纯数字字符串
-      if (/^\d+$/.test(processedEpisode)) {
-        // 已经是纯数字，直接使用
-        episodes[processedEpisode] = url;
-      } else if (/\d+/.test(processedEpisode)) {
-        // 包含数字的字符串，提取数字部分
-        const match = processedEpisode.match(/\d+/);
-        if (match) {
-          episodes[match[0]] = url;
-        }
+      const match = processedTitle.match(/\d+/);
+      if (match) {
+        episodeNumber = match[0];
       } else {
-        // 纯文字，统一改为"1"
-        episodes['1'] = url;
+        episodeNumber = (index + 1).toString();
+      }
+
+      if (episodeNumber) {
+        episodes[episodeNumber] = url;
       }
     }
-  }
+  });
 
   return episodes;
 }
