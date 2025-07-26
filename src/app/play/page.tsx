@@ -202,9 +202,7 @@ function PlayPageClient() {
         const searchResponse = await fetch(
           `/api/search-episodes?title=${encodeURIComponent(
             title
-          )}&year=${encodeURIComponent(year)}&stype=${encodeURIComponent(
-            stype
-          )}`
+          )}&year=${year}&stype=${stype}`
         );
 
         if (searchResponse.ok) {
@@ -232,9 +230,7 @@ function PlayPageClient() {
         //console.log(`查找第${episodeIndex + 1}集，episodeKey: ${episodeKey}, episodeUrl: ${episodeUrl}`);
 
         if (episodeUrl) {
-          const danmukuUrl = `/api/fc-proxy?url=${encodeURIComponent(
-            episodeUrl
-          )}`;
+          const danmukuUrl = `/api/fc-proxy?url=${episodeUrl}`;
           //console.log(`第${episodeIndex + 1}集弹幕URL:`, danmukuUrl);
           setDanmukuLoadSuccess(true);
           return danmukuUrl;
@@ -718,7 +714,7 @@ function PlayPageClient() {
 
   // 播放记录处理
   useEffect(() => {
-    // 仅在初次挂载时检查播放记录
+    // 当 currentSource 和 currentId 有值时检查播放记录
     const initFromHistory = async () => {
       if (!currentSource || !currentId) return;
 
@@ -732,12 +728,21 @@ function PlayPageClient() {
           const targetTime = record.play_time;
 
           // 更新当前选集索引
-          if (targetIndex !== currentEpisodeIndex) {
+          if (targetIndex !== currentEpisodeIndex && targetIndex >= 0) {
             setCurrentEpisodeIndex(targetIndex);
           }
 
           // 保存待恢复的播放进度，待播放器就绪后跳转
-          resumeTimeRef.current = targetTime;
+          if (targetTime > 0) {
+            resumeTimeRef.current = targetTime;
+            console.log(
+              '从播放记录恢复进度:',
+              targetTime,
+              '秒，第',
+              targetIndex + 1,
+              '集'
+            );
+          }
         }
       } catch (err) {
         console.error('读取播放记录失败:', err);
@@ -745,7 +750,7 @@ function PlayPageClient() {
     };
 
     initFromHistory();
-  }, []);
+  }, [currentSource, currentId]); // 依赖 currentSource 和 currentId
 
   // 处理换源
   const handleSourceChange = async (
@@ -1108,6 +1113,7 @@ function PlayPageClient() {
     }
   };
 
+  // 播放器初始化 - 仅在必要时创建/重建播放器
   useEffect(() => {
     if (
       !Artplayer ||
@@ -1120,14 +1126,6 @@ function PlayPageClient() {
       return;
     }
 
-    /*
-    console.log('播放器初始化参数:', {
-      videoUrl,
-      danmukuUrl,
-      currentEpisodeIndex,
-      videoTitle
-    });
-    */
     // 确保选集索引有效
     if (
       !detail ||
@@ -1143,8 +1141,7 @@ function PlayPageClient() {
       setError('视频地址无效');
       return;
     }
-    //console.log(videoUrl);
-    // 销毁并重建播放器的函数
+
     // 如果播放器实例已存在，优先使用 switchUrl，而不是销毁重建
     if (artPlayerRef.current) {
       console.log('Switching video URL:', videoUrl);
@@ -1154,11 +1151,23 @@ function PlayPageClient() {
           artPlayerRef.current.title = `${videoTitle} - 第${
             currentEpisodeIndex + 1
           }集`;
+          // 在switchUrl后也需要更新弹幕
           if (danmukuUrl) {
-            artPlayerRef.current.plugins.artplayerPluginDanmuku.config({
-              danmuku: danmukuUrl,
-            });
-            artPlayerRef.current.plugins.artplayerPluginDanmuku.load();
+            try {
+              artPlayerRef.current.plugins.artplayerPluginDanmuku.config({
+                danmuku: danmukuUrl,
+              });
+              artPlayerRef.current.plugins.artplayerPluginDanmuku.load();
+            } catch (err) {
+              console.warn('switchUrl后更新弹幕失败:', err);
+            }
+          } else {
+            // 如果没有弹幕URL，清空弹幕
+            try {
+              artPlayerRef.current.plugins.artplayerPluginDanmuku.reset();
+            } catch (err) {
+              console.warn('switchUrl后清空弹幕失败:', err);
+            }
           }
           // 快速隐藏加载状态
           setTimeout(() => setIsVideoLoading(false), 100);
@@ -1170,6 +1179,8 @@ function PlayPageClient() {
         });
       return;
     }
+
+    // 销毁并重建播放器的函数
     const destroyAndRecreatePlayer = () => {
       if (artPlayerRef.current) {
         if (artPlayerRef.current.video && artPlayerRef.current.video.hls) {
@@ -1187,8 +1198,6 @@ function PlayPageClient() {
         // 创建新的播放器实例
         Artplayer.PLAYBACK_RATE = [0.5, 0.75, 1, 1.25, 1.5, 2, 3];
         Artplayer.USE_RAF = true;
-
-        //console.log('即将创建播放器，弹幕URL:', danmukuUrl);
 
         if (!artRef.current) return;
 
@@ -1352,12 +1361,15 @@ function PlayPageClient() {
                 target = Math.max(0, duration - 5);
               }
               artPlayerRef.current.currentTime = target;
-              //console.log('成功恢复播放进度到:', resumeTimeRef.current);
+              console.log('成功恢复播放进度到:', target, '秒');
+              // 只有在成功设置进度后才清空，避免被后续事件重置
+              setTimeout(() => {
+                resumeTimeRef.current = null;
+              }, 1000);
             } catch (err) {
               console.warn('恢复播放进度失败:', err);
             }
           }
-          resumeTimeRef.current = null;
 
           setTimeout(() => {
             if (
@@ -1430,11 +1442,45 @@ function PlayPageClient() {
         setError('播放器初始化失败');
       }
     };
+
     // 初始创建播放器
     if (!artPlayerRef.current) {
       createPlayer();
     }
-  }, [Artplayer, Hls, videoUrl, loading, blockAdEnabled, danmukuUrl]);
+  }, [
+    Artplayer,
+    Hls,
+    videoUrl,
+    loading,
+    blockAdEnabled,
+    currentEpisodeIndex,
+    detail?.episodes?.length,
+  ]);
+
+  // 弹幕更新 - 独立的useEffect，避免重建播放器
+  useEffect(() => {
+    if (artPlayerRef.current) {
+      if (danmukuUrl) {
+        console.log('更新弹幕URL:', danmukuUrl);
+        try {
+          // 切换新的弹幕：先config()再load()
+          artPlayerRef.current.plugins.artplayerPluginDanmuku.config({
+            danmuku: danmukuUrl,
+          });
+          artPlayerRef.current.plugins.artplayerPluginDanmuku.load();
+        } catch (err) {
+          console.warn('更新弹幕失败:', err);
+        }
+      } else {
+        // 如果弹幕URL为空，清空弹幕
+        try {
+          artPlayerRef.current.plugins.artplayerPluginDanmuku.reset();
+        } catch (err) {
+          console.warn('清空弹幕失败:', err);
+        }
+      }
+    }
+  }, [danmukuUrl]);
 
   // 当组件卸载时清理定时器
   useEffect(() => {

@@ -18,7 +18,7 @@ export async function GET(request: Request) {
 
     // 如果URL包含 bilibili.com，需要通过 fc.lyz05.cn 获取重定向后的实际URL
     if (url.includes('bilibili.com')) {
-      const fcUrl = `https://fc.lyz05.cn/?url=${encodeURIComponent(url)}`;
+      const fcUrl = `https://fc.lyz05.cn/?url=${url}`;
 
       // 使用 redirect: 'manual' 来手动处理重定向
       const fcResponse = await fetch(fcUrl, {
@@ -39,10 +39,10 @@ export async function GET(request: Request) {
         targetUrl = fcUrl;
       }
       // eslint-disable-next-line no-console
-      console.log('targetUrl', targetUrl);
+      //console.log('targetUrl', targetUrl);
     } else {
       // 非 bilibili URL，直接代理 fc.lyz05.cn
-      targetUrl = `https://fc.lyz05.cn/?url=${encodeURIComponent(url)}`;
+      targetUrl = `https://fc.lyz05.cn/?url=${url}`;
     }
 
     const response = await fetch(targetUrl, {
