@@ -149,7 +149,9 @@ export async function GET(request: Request) {
 
   try {
     // 第一步：搜索影视作品
-    const searchUrl = `https://www.caiji.cyou/api.php/provide/vod/?ac=list&wd=${title}`;
+    const searchUrl = `https://www.caiji.cyou/api.php/provide/vod/?ac=list&wd=${encodeURIComponent(
+      title
+    )}`;
 
     const searchResponse = await fetch(searchUrl, {
       headers: {

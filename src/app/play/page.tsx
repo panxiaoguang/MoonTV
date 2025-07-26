@@ -202,7 +202,9 @@ function PlayPageClient() {
         const searchResponse = await fetch(
           `/api/search-episodes?title=${encodeURIComponent(
             title
-          )}&year=${year}&stype=${stype}`
+          )}&year=${encodeURIComponent(year)}&stype=${encodeURIComponent(
+            stype
+          )}`
         );
 
         if (searchResponse.ok) {
