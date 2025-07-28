@@ -3,6 +3,7 @@
 'use client';
 
 import Artplayer from 'artplayer';
+import artplayerPluginDanmuku from 'artplayer-plugin-danmuku';
 import Hls from 'hls.js';
 import { Heart } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -152,6 +153,12 @@ function PlayPageClient() {
   // 折叠状态（仅在 lg 及以上屏幕有效）
   const [isEpisodeSelectorCollapsed, setIsEpisodeSelectorCollapsed] =
     useState(false);
+
+  // 弹幕相关状态
+  //const [danmakuEnabled, setDanmakuEnabled] = useState(false);
+  const [danmakuUrl, setDanmakuUrl] = useState('');
+  const [showDanmakuInput, setShowDanmakuInput] = useState(false);
+  const [danmakuInputUrl, setDanmakuInputUrl] = useState('');
 
   // 换源加载状态
   const [isVideoLoading, setIsVideoLoading] = useState(true);
@@ -734,6 +741,20 @@ function PlayPageClient() {
       if (artPlayerRef.current && artPlayerRef.current.paused) {
         saveCurrentPlayProgress();
       }
+      setDanmakuUrl('');
+      //setDanmakuEnabled(false);
+      // 清空弹幕
+      if (
+        artPlayerRef.current &&
+        artPlayerRef.current.plugins.artplayerPluginDanmuku
+      ) {
+        artPlayerRef.current.plugins.artplayerPluginDanmuku.config({
+          danmuku: '',
+        });
+        artPlayerRef.current.plugins.artplayerPluginDanmuku.load();
+        console.log('已清空弹幕内容');
+      }
+
       setCurrentEpisodeIndex(episodeNumber);
     }
   };
@@ -745,6 +766,20 @@ function PlayPageClient() {
       if (artPlayerRef.current && !artPlayerRef.current.paused) {
         saveCurrentPlayProgress();
       }
+      setDanmakuUrl('');
+      //setDanmakuEnabled(false);
+      // 清空弹幕
+      if (
+        artPlayerRef.current &&
+        artPlayerRef.current.plugins.artplayerPluginDanmuku
+      ) {
+        artPlayerRef.current.plugins.artplayerPluginDanmuku.config({
+          danmuku: '',
+        });
+        artPlayerRef.current.plugins.artplayerPluginDanmuku.load();
+        console.log('已清空弹幕内容');
+      }
+
       setCurrentEpisodeIndex(idx - 1);
     }
   };
@@ -756,6 +791,20 @@ function PlayPageClient() {
       if (artPlayerRef.current && !artPlayerRef.current.paused) {
         saveCurrentPlayProgress();
       }
+      setDanmakuUrl('');
+      //setDanmakuEnabled(false);
+      // 清空弹幕
+      if (
+        artPlayerRef.current &&
+        artPlayerRef.current.plugins.artplayerPluginDanmuku
+      ) {
+        artPlayerRef.current.plugins.artplayerPluginDanmuku.config({
+          danmuku: '',
+        });
+        artPlayerRef.current.plugins.artplayerPluginDanmuku.load();
+        console.log('已清空弹幕内容');
+      }
+
       setCurrentEpisodeIndex(idx + 1);
     }
   };
@@ -998,6 +1047,64 @@ function PlayPageClient() {
     }
   };
 
+  // 处理弹幕URL设置
+  const handleDanmakuSubmit = async () => {
+    if (!danmakuInputUrl.trim()) {
+      alert('请输入有效的弹幕地址');
+      return;
+    }
+
+    try {
+      // 使用fc-proxy接口获取弹幕数据
+      const proxyUrl = `/api/fc-proxy?url=${encodeURIComponent(
+        danmakuInputUrl.trim()
+      )}`;
+
+      // 验证弹幕数据是否可以获取
+      const response = await fetch(proxyUrl);
+      if (!response.ok) {
+        throw new Error('获取弹幕数据失败');
+      }
+
+      // 更新状态
+      setShowDanmakuInput(false);
+      setDanmakuInputUrl('');
+
+      // 如果播放器已经存在且插件已加载，直接更新弹幕配置
+      if (
+        artPlayerRef.current &&
+        artPlayerRef.current.plugins.artplayerPluginDanmuku
+      ) {
+        console.log('更新弹幕配置:', proxyUrl);
+
+        // 先重置弹幕
+        artPlayerRef.current.plugins.artplayerPluginDanmuku.reset();
+
+        // 更新配置
+        artPlayerRef.current.plugins.artplayerPluginDanmuku.config({
+          danmuku: proxyUrl,
+        });
+
+        // 重新加载弹幕
+        artPlayerRef.current.plugins.artplayerPluginDanmuku.load();
+
+        // 更新状态
+        setDanmakuUrl(proxyUrl);
+        //setDanmakuEnabled(true);
+
+        console.log('弹幕配置已更新');
+      } else {
+        // 如果播放器还没有初始化，先设置URL，播放器初始化时会使用
+        setDanmakuUrl(proxyUrl);
+        //setDanmakuEnabled(true);
+        console.log('弹幕URL已设置，将在播放器初始化时应用');
+      }
+    } catch (err) {
+      console.error('设置弹幕失败:', err);
+      alert('设置弹幕失败，请检查地址是否正确');
+    }
+  };
+
   useEffect(() => {
     if (
       !Artplayer ||
@@ -1097,6 +1204,15 @@ function PlayPageClient() {
         moreVideoAttr: {
           crossOrigin: 'anonymous',
         },
+        // 插件配置
+        plugins: [
+          artplayerPluginDanmuku({
+            danmuku: danmakuUrl || '', // 始终初始化插件，即使没有弹幕URL
+            emitter: false,
+            //maxLength: 50,
+            theme: 'dark',
+          }),
+        ],
         // HLS 支持配置
         customType: {
           m3u8: function (video: HTMLVideoElement, url: string) {
@@ -1182,6 +1298,15 @@ function PlayPageClient() {
               return newVal ? '当前开启' : '当前关闭';
             },
           },
+          {
+            html: '弹幕设置',
+            icon: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z" fill="currentColor"/></svg>',
+            tooltip: '配置弹幕源',
+            onClick() {
+              setShowDanmakuInput(true);
+              return '弹幕设置';
+            },
+          },
         ],
         // 控制栏配置
         controls: [
@@ -1200,6 +1325,23 @@ function PlayPageClient() {
       // 监听播放器事件
       artPlayerRef.current.on('ready', () => {
         setError(null);
+
+        // 监听弹幕插件事件
+        if (artPlayerRef.current.plugins.artplayerPluginDanmuku) {
+          artPlayerRef.current.on(
+            'artplayerPluginDanmuku:loaded',
+            (danmus: any) => {
+              console.log('弹幕加载成功:', danmus.length, '条弹幕');
+            }
+          );
+
+          artPlayerRef.current.on(
+            'artplayerPluginDanmuku:error',
+            (error: any) => {
+              console.error('弹幕加载错误:', error);
+            }
+          );
+        }
       });
 
       artPlayerRef.current.on('video:volumechange', () => {
@@ -1664,6 +1806,56 @@ function PlayPageClient() {
           </div>
         </div>
       </div>
+
+      {/* 弹幕设置弹窗 */}
+      {showDanmakuInput && (
+        <div className='fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[1000]'>
+          <div className='bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4 shadow-xl'>
+            <h3 className='text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4'>
+              弹幕设置
+            </h3>
+            <div className='space-y-4'>
+              <div>
+                <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
+                  弹幕地址 (支持Bilibili等平台)
+                </label>
+                <input
+                  type='text'
+                  value={danmakuInputUrl}
+                  onChange={(e) => setDanmakuInputUrl(e.target.value)}
+                  placeholder='请输入弹幕文件地址'
+                  className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md 
+                           bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100
+                           focus:ring-2 focus:ring-green-500 focus:border-transparent
+                           placeholder-gray-500 dark:placeholder-gray-400'
+                />
+              </div>
+              <div className='text-xs text-gray-500 dark:text-gray-400'>
+                提示: 支持Bilibili弹幕地址，系统会自动获取弹幕数据
+              </div>
+            </div>
+            <div className='flex space-x-3 mt-6'>
+              <button
+                onClick={() => {
+                  setShowDanmakuInput(false);
+                  setDanmakuInputUrl('');
+                }}
+                className='flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 
+                         hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors'
+              >
+                取消
+              </button>
+              <button
+                onClick={handleDanmakuSubmit}
+                className='flex-1 px-4 py-2 text-white bg-green-600 hover:bg-green-700 
+                         rounded-md transition-colors font-medium'
+              >
+                确认
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </PageLayout>
   );
 }
