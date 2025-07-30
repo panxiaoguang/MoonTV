@@ -148,6 +148,8 @@ function PlayPageClient() {
   const resumeTimeRef = useRef<number | null>(null);
   // 上次使用的音量，默认 0.7
   const lastVolumeRef = useRef<number>(0.7);
+  // 上次使用的播放速率，默认 1.0
+  const lastPlaybackRateRef = useRef<number>(1.0);
 
   // 换源相关状态
   const [availableSources, setAvailableSources] = useState<SearchResult[]>([]);
@@ -1432,18 +1434,22 @@ function PlayPageClient() {
             html: '设置片尾',
             icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7 6L7 18" stroke="#ffffff" stroke-width="2"/><path d="M7 12L15 12" stroke="#ffffff" stroke-width="2"/><circle cx="19" cy="12" r="2" fill="#ffffff"/></svg>',
             tooltip:
-              skipConfig.outro_time === 0
+              skipConfig.outro_time >= 0
                 ? '设置片尾时间'
-                : `${formatTime(skipConfig.outro_time)}`,
+                : `-${formatTime(-skipConfig.outro_time)}`,
             onClick: function () {
-              const currentTime = artPlayerRef.current?.currentTime || 0;
-              if (currentTime > 0) {
+              const outroTime =
+                -(
+                  artPlayerRef.current?.duration -
+                  artPlayerRef.current?.currentTime
+                ) || 0;
+              if (outroTime < 0) {
                 const newConfig = {
                   ...skipConfig,
-                  outro_time: currentTime,
+                  outro_time: outroTime,
                 };
                 handleSkipConfigChange(newConfig);
-                return `${formatTime(currentTime)}`;
+                return `-${formatTime(-outroTime)}`;
               }
             },
           },
@@ -1496,6 +1502,9 @@ function PlayPageClient() {
       artPlayerRef.current.on('video:volumechange', () => {
         lastVolumeRef.current = artPlayerRef.current.volume;
       });
+      artPlayerRef.current.on('video:ratechange', () => {
+        lastPlaybackRateRef.current = artPlayerRef.current.playbackRate;
+      });
 
       // 监听视频可播放事件，这时恢复播放进度更可靠
       artPlayerRef.current.on('video:canplay', () => {
@@ -1520,6 +1529,14 @@ function PlayPageClient() {
             Math.abs(artPlayerRef.current.volume - lastVolumeRef.current) > 0.01
           ) {
             artPlayerRef.current.volume = lastVolumeRef.current;
+          }
+          if (
+            Math.abs(
+              artPlayerRef.current.playbackRate - lastPlaybackRateRef.current
+            ) > 0.01 &&
+            isWebkit
+          ) {
+            artPlayerRef.current.playbackRate = lastPlaybackRateRef.current;
           }
           artPlayerRef.current.notice.show = '';
         }, 0);
@@ -1553,9 +1570,10 @@ function PlayPageClient() {
 
         // 跳过片尾
         if (
-          skipConfigRef.current.outro_time > 0 &&
+          skipConfigRef.current.outro_time < 0 &&
           duration > 0 &&
-          currentTime > skipConfigRef.current.outro_time
+          currentTime >
+            artPlayerRef.current.duration + skipConfigRef.current.outro_time
         ) {
           if (
             currentEpisodeIndexRef.current <
