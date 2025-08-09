@@ -37,7 +37,7 @@ interface DoubanListApiResponse {
   }>;
 }
 
-interface DoubanRecommandApiResponse {
+interface DoubanRecommendApiResponse {
   total: number;
   items: Array<{
     id: string;
@@ -321,20 +321,21 @@ export async function fetchDoubanList(
   }
 }
 
-interface DoubanRecommandsParams {
+interface DoubanRecommendsParams {
   kind: 'tv' | 'movie';
   pageLimit?: number;
   pageStart?: number;
   category?: string;
   format?: string;
+  label?: string;
   region?: string;
   year?: string;
   platform?: string;
   sort?: string;
 }
 
-export async function getDoubanRecommands(
-  params: DoubanRecommandsParams
+export async function getDoubanRecommends(
+  params: DoubanRecommendsParams
 ): Promise<DoubanResult> {
   const {
     kind,
@@ -342,6 +343,7 @@ export async function getDoubanRecommands(
     pageStart = 0,
     category,
     format,
+    label,
     region,
     year,
     platform,
@@ -350,38 +352,41 @@ export async function getDoubanRecommands(
   const { proxyType, proxyUrl } = getDoubanProxyConfig();
   switch (proxyType) {
     case 'cors-proxy-zwei':
-      return fetchDoubanRecommands(params, 'https://cors.eu.org/');
+      return fetchDoubanRecommends(params, 'https://cors.eu.org/');
     case 'cmliussss-cdn-tencent':
-      return fetchDoubanRecommands(params, '', true, false);
+      return fetchDoubanRecommends(params, '', true, false);
     case 'cmliussss-cdn-ali':
-      return fetchDoubanRecommands(params, '', false, true);
+      return fetchDoubanRecommends(params, '', false, true);
     case 'cors-anywhere':
-      return fetchDoubanRecommands(params, 'https://cors-anywhere.com/');
+      return fetchDoubanRecommends(params, 'https://cors-anywhere.com/');
     case 'custom':
-      return fetchDoubanRecommands(params, proxyUrl);
+      return fetchDoubanRecommends(params, proxyUrl);
     case 'direct':
     default:
       const response = await fetch(
-        `/api/douban/recommands?kind=${kind}&limit=${pageLimit}&start=${pageStart}&category=${category}&format=${format}&region=${region}&year=${year}&platform=${platform}&sort=${sort}`
+        `/api/douban/recommends?kind=${kind}&limit=${pageLimit}&start=${pageStart}&category=${category}&format=${format}&region=${region}&year=${year}&platform=${platform}&sort=${sort}&label=${label}`
       );
 
       return response.json();
   }
 }
 
-async function fetchDoubanRecommands(
-  params: DoubanRecommandsParams,
+async function fetchDoubanRecommends(
+  params: DoubanRecommendsParams,
   proxyUrl: string,
   useTencentCDN = false,
   useAliCDN = false
 ): Promise<DoubanResult> {
   const { kind, pageLimit = 20, pageStart = 0 } = params;
-  let { category, format, region, year, platform, sort } = params;
+  let { category, format, region, year, platform, sort, label } = params;
   if (category === 'all') {
     category = '';
   }
   if (format === 'all') {
     format = '';
+  }
+  if (label === 'all') {
+    label = '';
   }
   if (region === 'all') {
     region = '';
@@ -410,6 +415,9 @@ async function fetchDoubanRecommands(
   }
   if (!category && format) {
     tags.push(format);
+  }
+  if (label) {
+    tags.push(label);
   }
   if (region) {
     tags.push(region);
@@ -449,7 +457,7 @@ async function fetchDoubanRecommands(
       throw new Error(`HTTP error! Status: ${response.status}`);
     }
 
-    const doubanData: DoubanRecommandApiResponse = await response.json();
+    const doubanData: DoubanRecommendApiResponse = await response.json();
     const list: DoubanItem[] = doubanData.items
       .filter((item) => item.type == 'movie' || item.type == 'tv')
       .map((item) => ({
