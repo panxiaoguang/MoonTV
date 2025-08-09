@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
       Announcement,
       SearchDownstreamMaxPage,
       SiteInterfaceCacheTime,
+      DoubanProxyType,
       ImageProxy,
       DoubanProxy,
       DisableYellowFilter,
@@ -41,6 +42,7 @@ export async function POST(request: NextRequest) {
       Announcement: string;
       SearchDownstreamMaxPage: number;
       SiteInterfaceCacheTime: number;
+      DoubanProxyType: string;
       ImageProxy: string;
       DoubanProxy: string;
       DisableYellowFilter: boolean;
@@ -52,6 +54,7 @@ export async function POST(request: NextRequest) {
       typeof Announcement !== 'string' ||
       typeof SearchDownstreamMaxPage !== 'number' ||
       typeof SiteInterfaceCacheTime !== 'number' ||
+      typeof DoubanProxyType !== 'string' ||
       typeof ImageProxy !== 'string' ||
       typeof DoubanProxy !== 'string' ||
       typeof DisableYellowFilter !== 'boolean'
@@ -68,7 +71,7 @@ export async function POST(request: NextRequest) {
       const user = adminConfig.UserConfig.Users.find(
         (u) => u.username === username
       );
-      if (!user || user.role !== 'admin') {
+      if (!user || user.role !== 'admin' || user.banned) {
         return NextResponse.json({ error: '权限不足' }, { status: 401 });
       }
     }
@@ -79,6 +82,7 @@ export async function POST(request: NextRequest) {
       Announcement,
       SearchDownstreamMaxPage,
       SiteInterfaceCacheTime,
+      DoubanProxyType,
       ImageProxy,
       DoubanProxy,
       DisableYellowFilter,

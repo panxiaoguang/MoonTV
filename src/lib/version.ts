@@ -2,7 +2,7 @@
 
 'use client';
 
-const CURRENT_VERSION = '20250805152852';
+const CURRENT_VERSION = '20250809145839';
 
 // 版本检查结果枚举
 export enum UpdateStatus {
@@ -13,8 +13,8 @@ export enum UpdateStatus {
 
 // 远程版本检查URL配置
 const VERSION_CHECK_URLS = [
-  'https://ghfast.top/raw.githubusercontent.com/senshinya/MoonTV/main/VERSION.txt',
-  'https://raw.githubusercontent.com/senshinya/MoonTV/main/VERSION.txt',
+  'https://raw.githubusercontent.com/LunaTechLab/MoonTV/main/VERSION.txt',
+  'https://cdn.jsdelivr.net/gh/LunaTechLab/moontv/VERSION.txt',
 ];
 
 /**
@@ -53,7 +53,13 @@ async function fetchVersionFromUrl(url: string): Promise<string | null> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000); // 5秒超时
 
-    const response = await fetch(url, {
+    // 添加时间戳参数以避免缓存
+    const timestamp = Date.now();
+    const urlWithTimestamp = url.includes('?')
+      ? `${url}&_t=${timestamp}`
+      : `${url}?_t=${timestamp}`;
+
+    const response = await fetch(urlWithTimestamp, {
       method: 'GET',
       signal: controller.signal,
       headers: {
